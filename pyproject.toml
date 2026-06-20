@@ -1,0 +1,55 @@
+[project]
+name = "dqmeasure-workspace"
+version = "0.1.0"
+description = "Workspace root for dqmeasure monorepo"
+requires-python = ">=3.11"
+
+[dependency-groups]
+dev = ["ruff>=0.9", "mypy>=1.13"]
+
+[tool.uv.workspace]
+members = ["packages/*", "experiments"]
+
+[tool.uv.sources]
+dqmeasure = { workspace = true }
+
+# -- Ruff: formatting + linting for the whole workspace ------------------------------------
+# Single source of truth at the workspace root; applies to every member.
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "B", "SIM", "C4", "PT", "RUF"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["dqmeasure"]
+
+[tool.ruff.lint.per-file-ignores]
+# Exploratory notebooks: bare expressions are how cells display values (B018);
+# imports may follow narrative prose cells (E402).
+"experiments/**" = ["B018", "E402"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+# -- mypy: static type checking for the library --------------------------------------------
+# Strict on the shipped library; tests get a relaxed override (see below).
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["packages/dqmeasure/src", "packages/dqmeasure/tests"]
+mypy_path = "packages/dqmeasure/src"
+
+# Tests: still type-check bodies (catches real API misuse) but don't require annotating
+# every test signature. `tests` is a package, so this covers all test modules.
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disable_error_code = ["no-untyped-def"]
+
+# pandas is an optional test backend and ships no inline types (would need pandas-stubs).
+[[tool.mypy.overrides]]
+module = ["pandas", "pandas.*"]
+ignore_missing_imports = true
