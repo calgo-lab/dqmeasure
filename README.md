@@ -4,6 +4,8 @@ We catalogue the overlapping quality measures between ISO/IEC 25024 and ISO/IEC 
 and implement them as code. Each measure can learn a reference on a clean instance of a
 table and measures a *dirty* instance, or take expert-user inputs directly.
 
+Read our documentation at [https://calgo-lab.de/dqmeasure/](https://calgo-lab.de/dqmeasure/).
+
 ## Repository structure
 
 This is a [uv](https://docs.astral.sh/uv/) **workspace** with two members:
