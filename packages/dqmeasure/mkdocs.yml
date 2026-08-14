@@ -1,0 +1,26 @@
+site_name: dqmeasure
+site_description: ISO/IEC 25024 & 5259 data-quality metrics
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - content.code.copy
+markdown_extensions:
+  - admonition
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: numpy
+            show_source: true
+            show_root_heading: true
+            members_order: source
+            separate_signature: true
+            filters: ["!^__"]
+nav:
+  - Home: index.md
+  - The measure model: dqmeasure-model.md
+  - API reference: reference.md
