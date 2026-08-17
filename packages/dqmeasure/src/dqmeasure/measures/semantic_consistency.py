@@ -86,6 +86,7 @@ class SemanticConsistency(PositionalMeasure):
       Order predicates on numeric or temporal columns are replaced by a difference bound: ``recruitment > birth``
       becomes ``recruitment - birth >= 16 years``, the threshold being the smallest clean difference observed on
       columns within ``confidence``. A threshold of zero or less is dropped.
+
     * ``method="llm"`` asks a language model at fit time to propose rules for the column from the
       schema and sampled clean records, as expression strings over ``col(...)``. Each proposal is compiled
       in a restricted namespace and validated on the clean data. Proposals that fail to evaluate, are not
