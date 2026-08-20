@@ -29,11 +29,17 @@ def test_ks_disjoint_distributions_score_zero(backend):
 
 
 def test_ks_hand_computed_shift(backend):
-    # Reference {1,2,3,4}, observed {1,2,3,100}: the ECDFs disagree most just past 4 (1 vs 3/4),
-    # a distance of 0.25 that we report as its complement.
     clean = make_frame({"x": [1.0, 2.0, 3.0, 4.0]}, backend)
     dirty = make_frame({"x": [1.0, 2.0, 3.0, 100.0]}, backend)
     assert DataValueDistribution("x").fit(clean).score(dirty) == pytest.approx(0.75)
+
+
+def test_ks_score_is_independent_of_row_order(backend):
+    clean = make_frame({"x": [1.0, 2.0, 3.0, 4.0]}, backend)
+    ordered = make_frame({"x": [1.0, 2.0, 3.0, 100.0]}, backend)
+    shuffled = make_frame({"x": [100.0, 2.0, 1.0, 3.0]}, backend)
+    measure = DataValueDistribution("x").fit(clean)
+    assert measure.score(shuffled) == pytest.approx(measure.score(ordered))
 
 
 def test_ks_matches_scipy_reference_implementation():

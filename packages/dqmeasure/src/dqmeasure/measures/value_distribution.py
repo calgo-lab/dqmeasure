@@ -114,7 +114,7 @@ class DataValueDistribution(BaseMeasure):
             reference = sorted(_drop_nan(list(self.expected_)))
             if not reference or not observed:
                 return float("nan")
-            return 1.0 - _ks_statistic(reference, observed)
+            return 1.0 - _ks_statistic(reference, sorted(observed))
         if not isinstance(self.expected_, Mapping):
             raise ValueError(
                 f"Column {self.column!r} is unordered, so `expected` must be a {{value: proportion}} "
