@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import re
+import json
 import warnings
 from typing import Any, Self
 
@@ -8,19 +8,15 @@ import narwhals as nw
 from narwhals.typing import IntoDataFrame
 
 from dqmeasure.base import NotResolvedError, PositionalMeasure
-from dqmeasure.measures._llm import openai_completion, render_record
+from dqmeasure.measures._llm import complete_many, is_missing, openai_completion, render_record
 
 
-def _parse_verdict(response: str) -> float:
-    """Map an LLM response to the condition result: leading "yes" -> 1.0, "no" -> 0.0."""
-    match = re.search(r"[A-Za-z]+", response)
-    word = match.group().lower() if match else ""
-    if word == "yes":
-        return 1.0
-    if word == "no":
-        return 0.0
-    warnings.warn(f"Could not parse LLM verdict {response!r}; counting the value as accurate.", stacklevel=2)
-    return 1.0
+def _parse_verdict(response: str) -> float | None:
+    try:
+        parsed = json.loads(response)
+        return 1.0 if bool(parsed["accurate"]) else 0.0
+    except (json.JSONDecodeError, KeyError, TypeError):
+        return None
 
 
 class SemanticDataAccuracy(PositionalMeasure):
@@ -29,14 +25,11 @@ class SemanticDataAccuracy(PositionalMeasure):
     Column measure, tier 1, positional: unit = cell, subject = the column. The measure is
     scoped to one column, but its condition reads the whole row, which goes into the prompt as context.
 
-    The standard compares each value against reality. A language model stands in for reality here: it judges
-    whether each value is semantically accurate given the rest of its record and real-world knowledge,
-    prompted with example records sampled from the clean data (few-shot serialization inspired by mimir's
-    ``llm_master``, see https://github.com/calgo-lab/mimir). A value that is wrong but plausible (the name
-    "George" stored where "John" was true) passes, so ``X`` is an upper bound on true semantic accuracy.
+    An LLM judges whether each value is semantically accurate given the rest of its record and its
+    real-world knowledge. The LLM is prompted with example records sampled from the clean data
+    (few-shot serialization inspired by mimir's ``llm_master``, see https://github.com/calgo-lab/mimir).
 
-    The measure talks to any OpenAI-compatible chat-completions endpoint and sends one request per distinct
-    record, which suits small tables or samples rather than bulk scoring.
+    The measure sends requests to any OpenAI-compatible chat-completions endpoint, sending one request per record.
 
     The reference (the sampled example records) cannot be specified in the constructor:
     [`fit`][dqmeasure.base.BaseMeasure.fit] on clean data is always required.
@@ -47,15 +40,19 @@ class SemanticDataAccuracy(PositionalMeasure):
         The column the measure applies to. All other columns of the frame go into the prompt as context.
     llm_model, llm_url:
         Model name and base URL (up to and including ``/v1``) of an OpenAI-compatible chat-completions
-        endpoint. The defaults target a local Ollama server with a model small enough for a laptop; point
-        ``llm_url`` at LM Studio, vLLM, llama.cpp server, or a hosted API to swap the backend.
+        endpoint. The defaults target a local Ollama server with a model small enough for a laptop.
     llm_api_key:
         Bearer token for the endpoint. ``None`` (default) falls back to the ``OPENAI_API_KEY`` environment
-        variable; local servers typically need none.
+        variable.
     n_examples:
         Number of clean records sampled at fit time as few-shot examples in the prompt.
     random_state:
         Seed for the example sampling, making the measurement procedure reproducible.
+    n_jobs:
+        Number of concurrent requests. ``1`` (default) sends them sequentially.
+    provider:
+        Pin every request to one upstream provider (routers such as OpenRouter otherwise pick per request,
+        which harms reproducibility). ``None`` (default) leaves routing to the endpoint.
     """
 
     iso_5259_id = "Acc-ML-2"
@@ -71,6 +68,8 @@ class SemanticDataAccuracy(PositionalMeasure):
         llm_api_key: str | None = None,
         n_examples: int = 5,
         random_state: int = 0,
+        n_jobs: int = 1,
+        provider: str | None = None,
     ) -> None:
         super().__init__(column=column)
         self.llm_model = llm_model
@@ -78,6 +77,8 @@ class SemanticDataAccuracy(PositionalMeasure):
         self.llm_api_key = llm_api_key
         self.n_examples = n_examples
         self.random_state = random_state
+        self.n_jobs = n_jobs
+        self.provider = provider
 
     def fit(self, X: IntoDataFrame) -> Self:
         """Sample the few-shot example records from a clean (training) dataframe. Mandatory for this measure."""
@@ -97,30 +98,47 @@ class SemanticDataAccuracy(PositionalMeasure):
 
     def _measure_units(self, frame: nw.DataFrame[Any]) -> nw.Series[Any]:
         # Per-cell condition: 1.0 if the model judges the value accurate, 0.0 if not, null if the value is
-        # missing (the same null-preserving float encoding as DataAccuracyRange, for backend parity).
-        llm = openai_completion(self.llm_model, self.llm_url, self.llm_api_key)
+        # missing or the model's response could not be parsed.
+        llm = openai_completion(self.llm_model, self.llm_url, self.llm_api_key, provider=self.provider)
         nulls = frame[self.column].is_null().to_list()
-        cache: dict[str, float] = {}  # identical records ask identical questions; judge each prompt once
-        data: list[float | None] = []
-        for i, row in enumerate(frame.iter_rows(named=True)):
-            if nulls[i]:
-                data.append(None)
-                continue
-            prompt = self._prompt(row)
-            if prompt not in cache:
-                cache[prompt] = _parse_verdict(llm(prompt))
-            data.append(cache[prompt])
+        rows = list(frame.iter_rows(named=True))
+        row_prompts: list[str | None] = [None if nulls[i] else self._prompt(row) for i, row in enumerate(rows)]
+
+        # Every distinct prompt is asked once
+        distinct_prompts = list(dict.fromkeys(prompt for prompt in row_prompts if prompt is not None))
+        responses = complete_many(llm, distinct_prompts, n_jobs=self.n_jobs)
+
+        verdicts: dict[str, float | None] = {}
+        failures: list[str] = []
+        for prompt, response in zip(distinct_prompts, responses, strict=True):
+            verdict = _parse_verdict(response)
+            verdicts[prompt] = verdict
+            if verdict is None:
+                failures.append(response)
+        if failures:
+            warnings.warn(
+                f"Could not parse {len(failures)} of {len(distinct_prompts)} LLM responses as a verdict "
+                f"(example: {failures[0]!r}). Counting them as missing, not as accurate.",
+                stacklevel=2,
+            )
+
+        data: list[float | None] = [None if prompt is None else verdicts[prompt] for prompt in row_prompts]
         return nw.new_series(self.column, data, nw.Float64, backend=frame.implementation)
 
     def _prompt(self, row: dict[str, Any]) -> str:
+        header = " | ".join(row.keys())
         examples = "\n".join(render_record(example) for example in self.examples_)
+        value = "<missing>" if is_missing(row[self.column]) else row[self.column]
         return (
             "You judge whether a value in a table record is semantically accurate: whether the value makes "
             "sense for its column, given the rest of the record and real-world knowledge.\n"
-            "Answer with a single word: yes or no.\n\n"
+            'Fields are pipe-separated in the order given by the header. A missing value is '
+            "shown as <missing>.\n"
+            'Respond with JSON only, in the form {"accurate": true} or {"accurate": false}.\n\n'
+            f"Columns: {header}\n\n"
             f"Records from the same table that are known to be accurate:\n{examples}\n\n"
             f"Record: {render_record(row)}\n"
             f"Column: {self.column}\n"
-            f"Value: {row[self.column]}\n"
-            "Is the value semantically accurate? Answer yes or no:"
+            f"Value: {value}\n"
+            "Is the value (not the row) semantically accurate? Respond with JSON only:"
         )
