@@ -8,7 +8,6 @@ import pytest
 
 from dqmeasure import SemanticConsistency
 from dqmeasure.base import NotResolvedError
-from dqmeasure.measures import semantic_consistency
 
 from ._helpers import make_frame
 
@@ -35,136 +34,60 @@ def test_specified_rules_conjunction(backend):
     assert measure.score(frame) == pytest.approx(1 / 3)
 
 
-# -- method="dc": approximate single-tuple denial-constraint mining ---------------------------
+# -- mined rules: single-column fds ---------------------------------------
 
 
-def test_dc_mines_difference_bound_and_flags_violations(backend):
-    clean = make_frame({"a": [10.0, 20.0, 30.0], "b": [1.0, 2.0, 3.0]}, backend)
-    measure = SemanticConsistency("a", confidence=1.0).fit(clean)
+def test_mines_lookup_and_flags_violations(backend):
+    clean = make_frame({"zip": ["12345", "12345", "67890"], "city": ["Berlin", "Berlin", "Hamburg"]}, backend)
+    measure = SemanticConsistency("city").fit(clean)
+    assert measure.rule_descriptions_ == ["zip -> city"]
 
-    # The surviving order relation a > b is tightened to the learned bound a - b >= 9 (the minimum
-    # clean difference), which subsumes it.
-    assert measure.rule_descriptions_ == ["a - b >= 9.0"]
+    # The middle row keeps a zip the clean data pairs with Berlin, but claims Hamburg.
+    dirty = make_frame({"zip": ["12345", "12345", "67890"], "city": ["Berlin", "Hamburg", "Hamburg"]}, backend)
+    cells = nw.from_native(measure.predict(dirty), series_only=True).to_list()
+    assert cells == [1.0, 0.0, 1.0]
+    assert measure.score(dirty) == pytest.approx(2 / 3)
 
-    dirty = make_frame({"a": [15.0, 0.5, None], "b": [1.0, 1.0, 1.0]}, backend)
+
+def test_unseen_key_is_out_of_scope(backend):
+    # A key the clean data never showed has no expected value, so the rule says nothing rather than 0.
+    clean = make_frame({"zip": ["12345"], "city": ["Berlin"]}, backend)
+    measure = SemanticConsistency("city").fit(clean)
+
+    dirty = make_frame({"zip": ["12345", "99999"], "city": ["Berlin", "Munich"]}, backend)
     cells = nw.from_native(measure.predict(dirty), series_only=True).to_list()
     assert cells[0] == 1.0
-    assert cells[1] == 0.0
-    assert cells[2] is None or math.isnan(cells[2])  # null subject -> out of scope
-    assert measure.score(dirty) == pytest.approx(0.5)
+    assert cells[1] is None or math.isnan(cells[1])
+    assert measure.score(dirty) == pytest.approx(1.0)
 
 
-def test_dc_mines_temporal_rule(backend):
-    clean = make_frame(
-        {
-            "born": [datetime(1970, 1, 1), datetime(1980, 6, 1), datetime(1960, 1, 1)],
-            "recruited": [datetime(1995, 1, 1), datetime(2000, 6, 1), datetime(1986, 1, 1)],
-        },
-        backend,
-    )
-    measure = SemanticConsistency("recruited", confidence=1.0).fit(clean)
-    assert measure.rule_descriptions_ == ["recruited - born >= 7305 days, 0:00:00"]
+def test_null_subject_or_context_is_out_of_scope(backend):
+    clean = make_frame({"zip": ["12345", "67890"], "city": ["Berlin", "Hamburg"]}, backend)
+    measure = SemanticConsistency("city").fit(clean)
 
-    dirty = make_frame(
-        {
-            "born": [datetime(1970, 1, 1), datetime(1990, 1, 1), None],
-            "recruited": [datetime(1995, 1, 1), datetime(1989, 1, 1), datetime(2000, 1, 1)],
-        },
-        backend,
-    )
+    dirty = make_frame({"zip": ["12345", None, "67890"], "city": ["Berlin", "Berlin", None]}, backend)
     cells = nw.from_native(measure.predict(dirty), series_only=True).to_list()
     assert cells[0] == 1.0
-    assert cells[1] == 0.0  # recruited before born
-    assert cells[2] is None or math.isnan(cells[2])  # null context -> out of scope
-    assert measure.score(dirty) == pytest.approx(0.5)
+    assert all(cell is None or math.isnan(cell) for cell in cells[1:])
 
 
-def test_dc_mines_equality_rule_for_strings(backend):
-    clean = make_frame({"city": ["Berlin", "Kiel"], "city_check": ["Berlin", "Kiel"]}, backend)
-    measure = SemanticConsistency("city", confidence=1.0).fit(clean)
-    assert "city == city_check" in measure.rule_descriptions_
-
-    dirty = make_frame({"city": ["Berlin", "Hamburg"], "city_check": ["Berlin", "Kiel"]}, backend)
-    assert measure.score(dirty) == pytest.approx(0.5)
-
-
-def test_dc_confidence_tolerates_clean_noise(backend):
-    # Two noise rows (one reversed, one equal) put every candidate below 100%: nothing survives at
-    # confidence 1.0, while a > b survives at 0.98 and is tightened into its difference bound.
-    clean = make_frame({"a": [10.0] * 98 + [0.0, 1.0], "b": [1.0] * 100}, backend)
-    tolerant = SemanticConsistency("a", confidence=0.98).fit(clean)
-    assert tolerant.rule_descriptions_ == ["a - b >= 9.0"]
+def test_key_with_two_values_is_not_a_dependency(backend):
+    # One zip carries two cities, so it determines nothing and no rule is left to measure against.
+    clean = make_frame({"zip": ["12345", "12345", "67890"], "city": ["Berlin", "Kiel", "Hamburg"]}, backend)
     with pytest.warns(UserWarning, match="no rule survived"):
-        strict = SemanticConsistency("a", confidence=1.0).fit(clean)
-    assert strict.rule_descriptions_ == []
-
-
-def test_dc_without_compatible_context_scores_nan(backend):
-    clean = make_frame({"a": [1.0, 2.0]}, backend)
-    with pytest.warns(UserWarning, match="no rule survived"):
-        measure = SemanticConsistency("a").fit(clean)
+        measure = SemanticConsistency("city").fit(clean)
+    assert measure.rule_descriptions_ == []
     assert math.isnan(measure.score(clean))
 
 
-# -- method="llm": language-model rule proposals ----------------------------------------------
-
-
-def stub_llm(monkeypatch, response: str) -> list[str]:
-    """Replace the chat-completions transport with a canned response; returns the prompts it receives."""
-    prompts: list[str] = []
-
-    def fake_openai_completion(model: str, url: str, api_key: str | None):
-        def complete(prompt: str) -> str:
-            prompts.append(prompt)
-            return response
-
-        return complete
-
-    monkeypatch.setattr(semantic_consistency, "openai_completion", fake_openai_completion)
-    return prompts
-
-
-def test_llm_rules_validated_on_clean_data(backend, monkeypatch):
-    clean = make_frame({"a": [10.0, 20.0, 30.0], "b": [1.0, 2.0, 3.0]}, backend)
-    proposals = "[\"col('a') > col('b')\", \"col('a') < col('b')\", \"import os\", \"col('a')\"]"
-    stub_llm(monkeypatch, proposals)
-    measure = SemanticConsistency("a", method="llm", confidence=1.0).fit(clean)
-
-    # The contradicted, the non-compiling, and the non-boolean proposal are discarded.
-    assert measure.rule_descriptions_ == ["col('a') > col('b')"]
-
-    dirty = make_frame({"a": [15.0, 0.5], "b": [1.0, 1.0]}, backend)
-    assert measure.score(dirty) == pytest.approx(0.5)
-
-
-def test_llm_called_once_at_fit_never_at_score(backend, monkeypatch):
-    prompts = stub_llm(monkeypatch, "[\"col('a') > col('b')\"]")
-
-    clean = make_frame({"a": [10.0, 20.0], "b": [1.0, 2.0]}, backend)
-    measure = SemanticConsistency("a", method="llm", confidence=1.0).fit(clean)
-    measure.score(clean)
-    measure.score(clean)
-    assert len(prompts) == 1
-
-
-def test_llm_prompt_contains_schema_examples_and_column(backend, monkeypatch):
-    prompts = stub_llm(monkeypatch, "[\"col('a') > col('b')\"]")
-
-    clean = make_frame({"a": [10.0, 20.0], "b": [1.0, 2.0]}, backend)
-    SemanticConsistency("a", method="llm", n_examples=2).fit(clean)
-    assert "a" in prompts[0]
-    assert "b" in prompts[0]
-    assert "10" in prompts[0]  # a sampled record
-    assert "'a'" in prompts[0]  # the scoped column
+def test_without_context_column_scores_nan(backend):
+    clean = make_frame({"city": ["Berlin", "Hamburg"]}, backend)
+    with pytest.warns(UserWarning, match="no rule survived"):
+        measure = SemanticConsistency("city").fit(clean)
+    assert math.isnan(measure.score(clean))
 
 
 # edgecases
-
-
-def test_unsupported_method_raises(backend):
-    clean = make_frame({"a": [1.0], "b": [1.0]}, backend)
-    with pytest.raises(ValueError, match="Unsupported method"):
-        SemanticConsistency("a", method="tree").fit(clean)  # type: ignore[arg-type]
 
 
 def test_missing_column_raises(backend):
