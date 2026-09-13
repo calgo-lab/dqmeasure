@@ -13,8 +13,9 @@ class DataRecordConsistency(PositionalMeasure):
     Table measure, tier 1, positional: unit = record (row), subject = the whole table.
 
     The ratio of records that occur exactly once in the dataset. The standard defines `Con-ML-1` as the
-    ratio of *duplicate* records. We report ``1 - X`` to keep every measure higher-is-better. A record
-    counts as a duplicate when the full row occurs more than once. This measure is the row-level case of
+    ratio of *duplicate* records. We report ``1 - X`` to keep every measure higher-is-better, where ``X``
+    is the ratio of duplicate rows in the table. A record counts as a duplicate when the full row occurs
+    more than once. This measure is the row-level case of
     [`RiskOfDataInconsistency`][dqmeasure.measures.inconsistency_risk.RiskOfDataInconsistency]. Records
     containing one or more null values are out of scope, because two nulls are not duplicates of each other.
 
