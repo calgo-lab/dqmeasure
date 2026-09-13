@@ -132,7 +132,7 @@ class SemanticDataAccuracy(PositionalMeasure):
         return (
             "You judge whether a value in a table record is semantically accurate: whether the value makes "
             "sense for its column, given the rest of the record and real-world knowledge.\n"
-            'Fields are pipe-separated in the order given by the header. A missing value is '
+            "Fields are pipe-separated in the order given by the header. A missing value is "
             "shown as <missing>.\n"
             'Respond with JSON only, in the form {"accurate": true} or {"accurate": false}.\n\n'
             f"Columns: {header}\n\n"

@@ -32,17 +32,41 @@ _VERDICT_SCHEMA: dict[str, Any] = {
 }
 
 
+def _body_error_code(body: bytes) -> int | None:
+    """The status code an endpoint reported *inside* an otherwise successful response body.
+
+    OpenRouter answers some upstream failures with HTTP 200 and an ``{"error": {"code": 502}}``
+    envelope. No HTTP-level check can see those, so a transient upstream fault would otherwise sail
+    past the retry and surface as an unparseable completion.
+    """
+    try:
+        code = json.loads(body)["error"]["code"]
+    except (json.JSONDecodeError, KeyError, TypeError):
+        return None
+    try:
+        return int(code)
+    except (TypeError, ValueError):
+        return None
+
+
 def _post_with_retry(url: str, data: bytes, headers: dict[str, str]) -> bytes:
     """POST with up to 5 attempts on failures, exponential backoff, taking into account a server's `Retry-After`.
 
     Retries on 408/409/425/429/500/502/503/504 and on connection-level failures (`URLError`,
-    `TimeoutError`). Anything else is raised on the first attempt.
+    `TimeoutError`), whether the endpoint reports the code as an HTTP status or inside a 200 response
+    body. Anything else is raised on the first attempt.
     """
     for attempt in range(_MAX_ATTEMPTS):
         request = urllib.request.Request(url, data=data, headers=headers)
         try:
             with urllib.request.urlopen(request, timeout=_TIMEOUT_SECONDS) as response:
-                return bytes(response.read())
+                body = bytes(response.read())
+            code = _body_error_code(body)
+            if code not in _RETRYABLE_STATUS_CODES or attempt == _MAX_ATTEMPTS - 1:
+                # Not an error envelope, not a transient one, or out of attempts: hand it to the caller,
+                # which turns an error body into a RuntimeError naming what came back.
+                return body
+            delay = _jitter.uniform(0, 2**attempt)
         except HTTPError as error:
             if error.code not in _RETRYABLE_STATUS_CODES or attempt == _MAX_ATTEMPTS - 1:
                 raise

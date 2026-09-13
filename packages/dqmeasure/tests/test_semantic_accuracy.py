@@ -1,32 +1,12 @@
 from __future__ import annotations
 
-import json
-import random
-import urllib.request
-import warnings
-from email.message import Message
-from typing import Any
-from urllib.error import HTTPError
-
 import pytest
 
 from dqmeasure import SemanticDataAccuracy
 from dqmeasure.base import NotResolvedError
-from dqmeasure.measures import _llm
 from dqmeasure.measures._llm import complete_many, is_missing, render_record
 
 from ._helpers import make_frame
-
-
-def cell_values(native_series: Any) -> list[Any]:
-    import narwhals as nw
-
-    return list(nw.from_native(native_series, series_only=True).to_list())
-
-
-def is_null(value: Any) -> bool:
-    """pandas represents a null float as `nan`, polars as `None`; treat both as missing."""
-    return value is None or value != value
 
 
 def test_missing_column_raises(backend):
