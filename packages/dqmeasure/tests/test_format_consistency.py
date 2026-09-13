@@ -56,6 +56,15 @@ def test_predict_cell_level_and_nulls_preserved(backend):
     assert col[2] is None or math.isnan(col[2])  # null in -> missing out
 
 
+def test_integer_column_allowed(backend):
+    measure = DataFormatConsistency("v", formats={"i"})
+    test = make_frame({"v": [10]}, backend)
+
+    col = nw.from_native(measure.predict(test), series_only=True).to_list()
+
+    assert col == [1.0]
+
+
 def test_all_null_column_scores_nan(backend):
     measure = DataFormatConsistency("v", formats={"dddd"})
     # An all-null column needs an explicit dtype; inference has nothing to go on.
