@@ -14,8 +14,9 @@ class RiskOfDataInconsistency(PositionalMeasure):
 
     A cell counts as a duplication when its value occurs more than once in the column. The standard defines
     `Con-I-3` as the risk of inconsistency, i.e. the ratio of duplicated cells. We report ``1 - X`` to keep
-    every measure higher-is-better: ``X`` is the ratio of cells holding a value unique in the column.
-    Nulls are out of scope, as two nulls are not duplicates of each other.
+    every measure higher-is-better, where ``X`` is the standard's share of duplicated cells. The score is
+    thus the ratio of cells holding a value unique in the column. Nulls are out of scope, as two nulls are not
+    duplicates of each other.
 
     This measure concerns duplicate values in one column. The table-scoped
     [`DataRecordConsistency`][dqmeasure.measures.record_consistency.DataRecordConsistency] addresses entire rows.
