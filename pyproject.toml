@@ -24,18 +24,20 @@ target-version = "py311"
 select = ["E", "W", "F", "I", "UP", "B", "SIM", "C4", "PT", "RUF"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["dqmeasure"]
+known-first-party = ["dqmeasure", "experiments"]
 
 [tool.ruff.lint.per-file-ignores]
 # Exploratory notebooks: bare expressions are how cells display values (B018);
-# imports may follow narrative prose cells (E402).
-"experiments/**" = ["B018", "E402"]
+# imports may follow narrative prose cells (E402); Greek letters in axis labels and en dashes in ranges
+# are the notation, not typos for Latin lookalikes (RUF001, RUF002, RUF003).
+"experiments/notebooks/*.ipynb" = ["B018", "E402", "RUF001", "RUF002", "RUF003"]
 
 [tool.ruff.format]
 docstring-code-format = true
 
 # -- mypy: static type checking for the library --------------------------------------------
-# Strict on the shipped library; tests get a relaxed override (see below).
+# Strict on the shipped library; tests get a relaxed override (see below). The experiments are
+# deliberately left out: they are research code, and annotating them earns nothing.
 
 [tool.mypy]
 python_version = "3.11"

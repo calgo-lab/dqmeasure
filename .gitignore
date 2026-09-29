@@ -13,3 +13,23 @@ __pycache__/
 
 # MkDocs build output
 packages/dqmeasure/site/
+
+# Experiment results pulled back from k8s
+experiments/results/
+
+# mypy cache
+.mypy_cache/
+.env
+
+# LLM cache
+experiments/cache/
+
+experiments/data/syntabfall/*.csv
+experiments/data/nyc_taxi/*.parquet
+experiments/data/nyc_taxi/manifest.json
+
+.DS_Store
+
+# Run markers and logs; the notebooks read only results.parquet and manifest.json
+experiments/measurements/**/FINISHED
+experiments/measurements/**/*.log

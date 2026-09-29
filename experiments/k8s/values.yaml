@@ -1,0 +1,61 @@
+namespace: pjung
+image:
+  repository: registry.datexis.com/pjung/dqmeasure-experiments
+  tag: v15
+  pullPolicy: Always
+imagePullSecrets:
+- name: datexis-registry-auth
+priorityClassName: unimportant
+experiment: scalability
+dataset: nyc_taxi
+nFolds: 5
+llm:
+  url: https://openrouter.ai/api/v1
+  model: deepseek/deepseek-v4-flash-0731
+  nJobs: 32
+  provider: deepinfra/fp8
+  apiKeySecret:
+    name: openrouter-api-key
+    key: OPENAI_API_KEY
+nodeSelector:
+  kubernetes.io/hostname: cl-worker27
+polarsMaxThreads: 4
+parallelism: 12
+largeParallelism: 4
+results:
+  pvc: dqmeasure-experiments-results
+  mountPath: /results
+data:
+  pvc: dqmeasure-experiments-data
+  mountPath: /data
+resources:
+  requests:
+    cpu: 4
+    memory: 16Gi
+  limits:
+    cpu: 4
+    memory: 16Gi
+runs: []
+indexed:
+- name: sweep
+  sweeps: rows,columns,llm
+  count: 150
+  parallelism: 12
+  resources:
+    requests:
+      cpu: 4
+      memory: 32Gi
+    limits:
+      cpu: 4
+      memory: 32Gi
+- name: large
+  sweeps: large
+  count: 20
+  parallelism: 4
+  resources:
+    requests:
+      cpu: 4
+      memory: 96Gi
+    limits:
+      cpu: 4
+      memory: 96Gi

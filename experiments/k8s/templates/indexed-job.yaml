@@ -1,0 +1,99 @@
+{{- if .Values.indexed }}
+{{- range $job := .Values.indexed }}
+---
+# One Indexed Job per sweep: each pod finds its run as `scalability.runs(SWEEPS)[JOB_COMPLETION_INDEX]`,
+# and `parallelism` caps how many of our pods share the node.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $.Values.experiment }}-{{ $job.name }}
+  namespace: {{ $.Values.namespace }}
+  labels:
+    experiment: {{ $.Values.experiment }}
+    sweep: {{ $job.name }}
+spec:
+  completions: {{ $job.count }}
+  parallelism: {{ $job.parallelism }}
+  completionMode: Indexed
+  backoffLimit: {{ $job.count }}
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        experiment: {{ $.Values.experiment }}
+        sweep: {{ $job.name }}
+    spec:
+      restartPolicy: Never
+      {{- with $.Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $.Values.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      {{- with $.Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: run
+          image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag }}"
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          # The image's entrypoint runs one fold-experiment run; scalability has its own.
+          command: ["python", "-m", "experiments.scalability"]
+          env:
+            - name: EXPERIMENT
+              value: "{{ $.Values.experiment }}"
+            - name: DATASET
+              value: "{{ $.Values.dataset }}"
+            - name: SWEEPS
+              value: "{{ $job.sweeps }}"
+            - name: RESULTS_DIR
+              value: "{{ $.Values.results.mountPath }}"
+            {{- with $.Values.data }}
+            - name: DATA_DIR
+              value: "{{ .mountPath }}"
+            {{- end }}
+            - name: LLM_URL
+              value: "{{ $.Values.llm.url }}"
+            - name: LLM_MODEL
+              value: "{{ $.Values.llm.model }}"
+            - name: LLM_N_JOBS
+              value: "{{ $.Values.llm.nJobs }}"
+            - name: LLM_PROVIDER
+              value: "{{ $.Values.llm.provider }}"
+            {{- with $.Values.polarsMaxThreads }}
+            # Polars counts the node's cores, not the cgroup's limit.
+            - name: POLARS_MAX_THREADS
+              value: "{{ . }}"
+            {{- end }}
+            {{- with $.Values.llm.apiKeySecret }}
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .name }}
+                  key: {{ .key }}
+            {{- end }}
+          volumeMounts:
+            - name: results
+              mountPath: {{ $.Values.results.mountPath }}
+            {{- with $.Values.data }}
+            - name: data
+              mountPath: {{ .mountPath }}
+              readOnly: true
+            {{- end }}
+          # Every index asks for what the Job's largest run needs, hence a separate Job for the largest sizes.
+          resources:
+            {{- toYaml ($job.resources | default $.Values.resources) | nindent 12 }}
+      volumes:
+        - name: results
+          persistentVolumeClaim:
+            claimName: {{ $.Values.results.pvc }}
+        {{- with $.Values.data }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .pvc }}
+            readOnly: true
+        {{- end }}
+{{- end }}
+{{- end }}

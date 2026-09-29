@@ -1,0 +1,39 @@
+# Fills the data claim once, by hand rather than by Helm, so re-installing the release downloads nothing.
+# See "Scalability" in experiments/README.md for the commands.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: prepare-nyc-taxi
+  namespace: pjung
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: datexis-registry-auth
+      priorityClassName: unimportant
+      containers:
+        - name: prepare
+          image: "registry.datexis.com/pjung/dqmeasure-experiments:v15"
+          imagePullPolicy: Always
+          # get-datasets checks every file against the one the paper measured.
+          command: ["sh", "-c", "get-datasets && prepare-nyc-taxi"]
+          env:
+            - name: DATA_DIR
+              value: /data
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          # The whole year is concatenated and shuffled in memory.
+          resources:
+            requests:
+              cpu: 4
+              memory: 96Gi
+            limits:
+              cpu: 4
+              memory: 96Gi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: dqmeasure-experiments-data

@@ -1,0 +1,15 @@
+# The NYC taxi trips, applied once by hand so that an uninstall does not delete them. 10Gi holds the twelve
+# monthly files (about 700MB) and the prepared year (about 1.2GB).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: dqmeasure-experiments-data
+  namespace: pjung
+spec:
+  # Every run mounts it read-only.
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: shared

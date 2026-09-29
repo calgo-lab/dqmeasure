@@ -1,15 +1,32 @@
 [project]
 name = "experiments"
 version = "0.1.0"
-description = "Notebooks and error-injection experiments consuming the dqmeasure library"
+description = "Paper experiments: data-quality measurement, downstream ML performance, scalability"
 requires-python = ">=3.11"
 dependencies = [
     "dqmeasure",
     "tab-err",
     "polars>=1.0",
+    "pandas>=2.0",
     "pyarrow",
-    "jupyter",
+    "scikit-learn>=1.4",
+    "numpy",
 ]
 
+[project.scripts]
+run-one = "experiments.runner:main"
+run-sweep = "experiments.sweep:main"
+run-scalability = "experiments.scalability:local_main"
+prepare-nyc-taxi = "experiments.scalability:prepare_main"
+get-datasets = "experiments.get_datasets:main"
+
 [dependency-groups]
-dev = ["pytest"]
+dev = ["pytest", "pyyaml", "scipy", "matplotlib", "jupyter"]
+
+[build-system]
+requires = ["uv_build>=0.11,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = "src"
+module-name = "experiments"

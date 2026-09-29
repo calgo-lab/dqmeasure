@@ -1,0 +1,15 @@
+.git
+.github
+.venv
+**/__pycache__
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/.ipynb_checkpoints
+packages/dqmeasure/site
+experiments/notebooks
+experiments/results
+experiments/data/nyc_taxi
+experiments/data/syntabfall
+experiments/cache
+experiments/measurements

@@ -1,0 +1,18 @@
+# Applied once by hand, not by Helm: the results outlive any single sweep, and an uninstall must not
+# take them with it.
+#
+#   kubectl apply -f experiments/k8s/pvc-results.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: dqmeasure-experiments-results
+  namespace: pjung
+spec:
+  # Many Jobs run at once and each writes its own subdirectory, so the claim has to be mountable by all
+  # of them at the same time.
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: shared
