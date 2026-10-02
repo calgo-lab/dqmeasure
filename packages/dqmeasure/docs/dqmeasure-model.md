@@ -120,6 +120,10 @@ these statistics. Examples from ISO/IEC 5259-2:
 No meaningful per-unit value exists for these measures, so they are `score()`-only
 (see [§2](#2-scope-parameterized-measures)).
 
+### Scale type
+
+Every measure in `dqmeasure` is on a ratio scale (ISO/IEC 25021, Table 1, item k).
+
 ## 4. Tier-1 measure: unit, condition, subject
 
 We define three independent facets that describe every condition-count measure.
