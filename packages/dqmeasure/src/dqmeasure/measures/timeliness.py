@@ -11,7 +11,7 @@ from dqmeasure.base import PositionalMeasure, _require_column
 class TimelinessOfDataItems(PositionalMeasure):
     """ISO/IEC 5259-2 `Tml-ML-1` "Timeliness of data items".
 
-    Column measure, tier 1, positional: unit = row (a data item), subject = the
+    Column measure, tier 1, positional: unit = row, subject = the
     availability-timestamp column. The standard defines timeliness as the latency
     between the time a phenomenon occurs and the time the data recorded for it becomes available for
     use — as opposed to currentness (`Cur-ML-1`), the age of recorded data relative to its use.

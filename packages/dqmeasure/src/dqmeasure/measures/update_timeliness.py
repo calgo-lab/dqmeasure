@@ -11,7 +11,7 @@ from dqmeasure.base import PositionalMeasure, _require_column
 class TimelinessOfUpdate(PositionalMeasure):
     """ISO/IEC 25024 `Cur-I-2` "Timeliness of update".
 
-    Column measure, tier 1, positional: unit = row (a data item needing updating), subject = the
+    Column measure, tier 1, positional: unit = row, subject = the
     update-timestamp column. ``due_column`` names when each update was due or requested; it
     is context, not scope (scope and context are independent). A row is in scope iff its due time is set, so
     ``B`` counts the items needing updating; the condition checks that the update landed within ``sla`` of

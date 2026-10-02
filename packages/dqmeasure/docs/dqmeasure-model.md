@@ -40,7 +40,7 @@ In `dqmeasure`, we map these concepts onto tabular data:
 | ISO concept | In `dqmeasure` |
 |---|---|
 | Target entity | Dataframe (ISO/IEC 25024 *data file*, *data set*; ISO/IEC 5259-2 *data frame*, *dataset*) |
-| Property to quantify | *data values* (cells), *data records* (rows), *data items* (columns) |
+| Property to quantify | *data values* (cells), *data records* (rows), *attributes* (columns) |
 | Quality characteristic | accuracy, completeness, consistency, etc. (ISO/IEC 25012, ISO/IEC 5259-1) |
 
 ISO/IEC 25024 documents each QM with an ID (e.g. `Acc-I-7`), a measurement function (almost always a
