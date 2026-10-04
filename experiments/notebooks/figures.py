@@ -102,9 +102,9 @@ def as_tex(name: str) -> str:
 
 
 def measure_label(measure: str) -> str:
-    """A measure's class name as words: `DataAccuracyRange` -> `Data Accuracy Range`."""
+    """A measure's class name in the standards' sentence case: `DataAccuracyRange` -> `Data accuracy range`."""
     spaced = re.sub(r"(?<!^)(?=[A-Z])", " ", measure)
-    return spaced.replace(" Of ", " of ")
+    return spaced.capitalize()
 
 
 def scenario_label(scenario: str) -> str:
