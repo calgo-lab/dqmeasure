@@ -49,7 +49,7 @@ uv run --package experiments jupyter lab
 ```
 
 then navigate into experiments/notebooks/ and open one of the notebooks - there is one for each
-category of DQM, plus `error_injection.ipynb`, which walks the experiment flow end to end.
+category of DQM.
 
 ## Quickstart
 
@@ -64,8 +64,4 @@ test = pl.DataFrame({"temperature": [25.0, 150.0, -5.0]})
 measure.predict(test)  # per-cell condition results, a series
 measure.score(test)  # the ISO quality measure value, one float
 ```
-
-For the full workflow - error injection with `tab_err` and validation against the injected
-ground truth - see
-[`experiments/notebooks/error_injection.ipynb`](experiments/notebooks/error_injection.ipynb).
 
