@@ -15,7 +15,8 @@ __pycache__/
 packages/dqmeasure/site/
 
 # Experiment results pulled back from k8s
-experiments/results/
+experiments/results/*
+!experiments/results/.gitkeep
 
 # mypy cache
 .mypy_cache/

@@ -3,6 +3,7 @@ name = "dqmeasure"
 version = "0.1.0"
 description = "Data-quality metrics from ISO/IEC 25024 and ISO/IEC 5259"
 readme = "README.md"
+license = "Apache-2.0"
 requires-python = ">=3.11"
 dependencies = [
     "narwhals>=1.0",

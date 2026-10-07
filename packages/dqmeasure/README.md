@@ -22,6 +22,28 @@ The conceptual model is described in `docs/dqmeasure-model.md`.
 The core is written against [Narwhals](https://narwhals-dev.github.io/narwhals/), so inputs
 may be Polars or pandas frames; results come back in the caller's backend.
 
+## Development
+
+Run from the **workspace root**, after `uv sync --all-packages`. The test suite runs on
+both Polars and pandas:
+
+```bash
+uv run pytest packages/dqmeasure/tests -q
+```
+
+Format and lint the whole workspace (Ruff):
+
+```bash
+uv run ruff format .
+uv run ruff check .
+```
+
+Type-check the library (mypy, strict):
+
+```bash
+uv run mypy packages/dqmeasure
+```
+
 ## Documentation
 
 API docs are built with [MkDocs](https://www.mkdocs.org/) + Material +
