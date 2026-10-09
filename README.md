@@ -2,7 +2,8 @@
 
 <p align="center">Code for <em>"Implementation Guidelines for Data Quality Metrics"</em>: the data quality metrics of ISO/IEC 25024 and ISO/IEC 5259 as fit/score estimators.</p>
 
-<p align="center">[<a href="https://calgo-lab.de/dqmeasure/">Documentation</a>] [<a href="#">Paper (arXiv, waiting for submission)</a>]</p>
+<p align="center">[<a href="https://calgo-lab.de/dqmeasure/">Documentation</a>] [<a href="
+http://arxiv.org/abs/2610.10919">Paper (arXiv)</a>]</p>
 
 <p align="center"><img src="figures/overview.png" width="560" alt="Two boxes at the top, DQ dimensions (standard-defined, e.g. accuracy, completeness) and low-level checks (tool-specific, e.g. missing values, ranges), are separated by a dashed arrow labelled gap. Below, the ISO metric Acc-I-1 Syntactic data accuracy leads to a blue box, implementation guidelines, which leads to a second blue box, dqmeasure, showing SyntacticDataAccuracy(c).fit(reference).score(data) returning 0.93, with an arrow up to the low-level checks."></p>
 
@@ -153,7 +154,7 @@ This is a [uv](https://docs.astral.sh/uv/) workspace with two members:
 @article{jung2026dqmeasure,
       title={Implementation Guidelines for Data Quality Metrics},
       author={Jung, Philipp and Becker, Katinka and Biessmann, Felix and Restat, Valerie and Seyferth, Martin and Schwabe, Daniel and Ehrlinger, Lisa},
-      journal={arXiv preprint arXiv:XXXX.XXXXX},
+      journal={arXiv preprint arXiv:2610.10919},
       year={2026}
 }
 ```
